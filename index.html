@@ -695,6 +695,7 @@
         const SiteCard = ({ site, isEditMode, onDelete, onEdit, categories, onMoveToCategory, isEditing, onSetEditing, onOpenStorageManager }) => {
             const [editName, setEditName] = useState(site.name);
             const [editUrl, setEditUrl] = useState(site.url);
+            const [editPdfUrl, setEditPdfUrl] = useState(site.pdfUrl || null); // 补全丢失的状态
             const [editPdfName, setEditPdfName] = useState(site.pdfName || '');
             const pdfInputRef = useRef(null);
 
