@@ -460,8 +460,7 @@
         };
 
         // --- SiteCard Component ---
-        const SiteCard = ({ site, isEditMode, onDelete, onEdit, categories, onMoveToCategory }) => {
-            const [isEditing, setIsEditing] = useState(false);
+        const SiteCard = ({ site, isEditMode, onDelete, onEdit, categories, onMoveToCategory, isEditing, onSetEditing }) => {
             const [editName, setEditName] = useState(site.name);
             const [editUrl, setEditUrl] = useState(site.url);
             const [editPdfUrl, setEditPdfUrl] = useState(site.pdfUrl || null);
@@ -470,10 +469,12 @@
 
             // 同步props变化
             useEffect(() => {
-                setEditName(site.name);
-                setEditUrl(site.url);
-                setEditPdfUrl(site.pdfUrl || null);
-            }, [site]);
+                if (isEditing) {
+                    setEditName(site.name);
+                    setEditUrl(site.url);
+                    setEditPdfUrl(site.pdfUrl || null);
+                }
+            }, [site, isEditing]);
 
             const handleDragStart = (e) => {
                 e.dataTransfer.setData("siteId", site.id);
@@ -498,16 +499,13 @@
                         url: editUrl.trim(),
                         pdfUrl: editPdfUrl
                     });
-                    setIsEditing(false);
+                    onSetEditing(false);
                 }
             };
 
             // 取消编辑
             const handleCancel = () => {
-                setEditName(site.name);
-                setEditUrl(site.url);
-                setEditPdfUrl(site.pdfUrl || null);
-                setIsEditing(false);
+                onSetEditing(false);
             };
 
             // 点击卡片进入编辑
@@ -515,7 +513,7 @@
                 if (isEditMode && !e.target.closest('.delete-btn')) {
                     e.preventDefault();
                     e.stopPropagation();
-                    setIsEditing(true);
+                    onSetEditing(true);
                 }
             };
 
@@ -685,7 +683,7 @@
                                         onClick={() => {
                                             if (confirm('确定要删除这个规范吗？')) {
                                                 onDelete(site.id);
-                                                setIsEditing(false);
+                                                onSetEditing(false);
                                             }
                                         }}
                                         className="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-1"
@@ -716,7 +714,7 @@
         };
 
         // --- CategoryGroup Component ---
-        const CategoryGroup = ({ category, onDrop, isEditMode, onDeleteSite, onEditSite, onUpdateCategoryTitle }) => {
+        const CategoryGroup = ({ category, onDrop, isEditMode, onDeleteSite, onEditSite, onUpdateCategoryTitle, editingSiteId, onSetEditingSiteId }) => {
             const [isEditingTitle, setIsEditingTitle] = useState(false);
             const [newTitle, setNewTitle] = useState(category.title);
             const [isCollapsed, setIsCollapsed] = useState(false);
@@ -817,6 +815,8 @@
                                     isEditMode={isEditMode}
                                     onDelete={onDeleteSite}
                                     onEdit={onEditSite}
+                                    isEditing={editingSiteId === site.id}
+                                    onSetEditing={(isEditing) => onSetEditingSiteId(isEditing ? site.id : null)}
                                 />
                             ))}
                             {category.sites.length === 0 && (
@@ -835,6 +835,7 @@
             const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
             const [isEditMode, setIsEditMode] = useState(false);
             const [isCatalogModalOpen, setIsCatalogModalOpen] = useState(false);
+            const [editingSiteId, setEditingSiteId] = useState(null); // 全局编辑状态
             const restoreInputRef = useRef(null);
 
             // 保存数据存档（导出JSON文件）
@@ -1063,6 +1064,8 @@
                                     onDeleteSite={handleDeleteSite}
                                     onEditSite={handleEditSite}
                                     onUpdateCategoryTitle={handleUpdateCategoryTitle}
+                                    editingSiteId={editingSiteId}
+                                    onSetEditingSiteId={setEditingSiteId}
                                 />
                             ))}
                         </div>
