@@ -828,6 +828,61 @@
             const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
             const [isEditMode, setIsEditMode] = useState(false);
             const [isCatalogModalOpen, setIsCatalogModalOpen] = useState(false);
+            const restoreInputRef = useRef(null);
+
+            // 保存数据存档（导出JSON文件）
+            const handleSaveArchive = () => {
+                const archiveData = {
+                    version: '1.0',
+                    savedAt: new Date().toISOString(),
+                    categories: categories.map(cat => ({
+                        ...cat,
+                        sites: cat.sites.map(site => ({
+                            ...site,
+                            // 不保存blob URL（本地PDF），只保存其他数据
+                            pdfUrl: site.pdfUrl && site.pdfUrl.startsWith('blob:') ? null : site.pdfUrl
+                        }))
+                    }))
+                };
+
+                const blob = new Blob([JSON.stringify(archiveData, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `搜建筑导航_存档_${new Date().toLocaleDateString().replace(/\//g, '-')}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                alert('✅ 存档已保存！\n\n请妥善保管下载的JSON文件，需要时可通过"恢复存档"功能恢复数据。');
+            };
+
+            // 恢复数据存档（导入JSON文件）
+            const handleRestoreArchive = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const archiveData = JSON.parse(event.target.result);
+
+                        if (!archiveData.categories || !Array.isArray(archiveData.categories)) {
+                            throw new Error('无效的存档文件格式');
+                        }
+
+                        if (confirm(`确定要恢复此存档吗？\n\n存档时间：${new Date(archiveData.savedAt).toLocaleString()}\n包含 ${archiveData.categories.length} 个分类\n\n⚠️ 当前数据将被覆盖！`)) {
+                            setCategories(archiveData.categories);
+                            alert('✅ 存档恢复成功！');
+                        }
+                    } catch (err) {
+                        alert('❌ 恢复失败：文件格式无效\n\n' + err.message);
+                    }
+                };
+                reader.readAsText(file);
+                e.target.value = ''; // 清空以支持重复上传
+            };
 
             // Handle dropping a site into a category
             const handleDropSite = (siteId, targetCategoryId) => {
@@ -914,6 +969,32 @@
                                     </h1>
                                 </div>
                                 <div className="flex items-center gap-3">
+                                    {/* 存档按钮组 */}
+                                    <div className="hidden md:flex items-center gap-1">
+                                        <button
+                                            onClick={handleSaveArchive}
+                                            className="flex items-center gap-1.5 px-3 py-2 bg-green-600 text-white rounded-l-full hover:bg-green-700 transition-all text-sm font-medium shadow-sm"
+                                            title="保存当前数据为存档文件"
+                                        >
+                                            <i className="fa-solid fa-download"></i>
+                                            保存存档
+                                        </button>
+                                        <label
+                                            className="flex items-center gap-1.5 px-3 py-2 bg-orange-500 text-white rounded-r-full hover:bg-orange-600 transition-all text-sm font-medium shadow-sm cursor-pointer"
+                                            title="从存档文件恢复数据"
+                                        >
+                                            <i className="fa-solid fa-upload"></i>
+                                            恢复存档
+                                            <input
+                                                ref={restoreInputRef}
+                                                type="file"
+                                                accept=".json"
+                                                onChange={handleRestoreArchive}
+                                                className="hidden"
+                                            />
+                                        </label>
+                                    </div>
+
                                     <button
                                         onClick={() => setIsCatalogModalOpen(true)}
                                         className="hidden md:flex items-center gap-2 px-4 py-2 bg-white text-slate-600 border border-slate-200 rounded-full hover:bg-slate-50 hover:text-blue-600 transition-all text-sm font-medium shadow-sm hover:shadow"
