@@ -1113,45 +1113,87 @@
 
         // --- Main App Component ---
         const App = () => {
-            const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
+            // 初始化 Categories：优先从 localStorage 读取，否则使用默认值
+            const [categories, setCategories] = useState(() => {
+                try {
+                    const saved = localStorage.getItem('nav_categories');
+                    return saved ? JSON.parse(saved) : DEFAULT_CATEGORIES;
+                } catch (e) {
+                    return DEFAULT_CATEGORIES;
+                }
+            });
             const [isEditMode, setIsEditMode] = useState(false);
             const [isCatalogModalOpen, setIsCatalogModalOpen] = useState(false);
             const [editingSiteId, setEditingSiteId] = useState(null); // 全局编辑状态
             const [isStorageManagerOpen, setIsStorageManagerOpen] = useState(false); // 本地存储管理器状态
             const restoreInputRef = useRef(null);
 
-            // 初始化：从 IndexedDB 恢复 PDF 文件
+            // 持久化 Categories 到 localStorage
+            useEffect(() => {
+                const dataToSave = categories.map(cat => ({
+                    ...cat,
+                    sites: cat.sites.map(site => ({
+                        ...site,
+                        // 不保存 Blob URL，但保存 hasLocalPdf 标记
+                        pdfUrl: site.pdfUrl && site.pdfUrl.startsWith('blob:') ? null : site.pdfUrl
+                    }))
+                }));
+                localStorage.setItem('nav_categories', JSON.stringify(dataToSave));
+            }, [categories]);
+
+            // 初始化：从 IndexedDB 恢复 PDF 文件 (主动扫描 DB)
             useEffect(() => {
                 const restorePDFs = async () => {
-                    let hasUpdates = false;
-                    const newCategories = [...categories];
+                    try {
+                        const allFiles = await getAllPDFs();
+                        if (!allFiles || allFiles.length === 0) return;
 
-                    for (let cat of newCategories) {
-                        for (let site of cat.sites) {
-                            if (site.hasLocalPdf && !site.pdfUrl) {
-                                const file = await getPDF(site.id);
-                                if (file) {
-                                    site.pdfUrl = URL.createObjectURL(file);
-                                    site.pdfName = file.name; // 恢复文件名
-                                    hasUpdates = true;
-                                }
+                        // 创建 ID -> File 映射
+                        const fileMap = new Map();
+                        allFiles.forEach(item => {
+                            if (item.file) fileMap.set(item.id, item.file);
+                        });
+
+                        setCategories(prevCategories => {
+                            // 使用函数式更新，确保基于最新状态
+                            let hasUpdates = false;
+                            const newCategories = prevCategories.map(cat => ({
+                                ...cat,
+                                sites: cat.sites.map(site => {
+                                    if (fileMap.has(site.id)) {
+                                        const file = fileMap.get(site.id);
+                                        // 仅当当前还没有 URL 或者 URL 失效时才重新生成
+                                        // 这里简单起见，如果 DB 有文件，总是尝试更新/恢复
+                                        // 注意：避免重复创建 Blob URL 造成内存泄漏，如果已有且有效则不处理 (但在刷新场景下，之前的 blob url 肯定失效了)
+                                        if (!site.pdfUrl || !site.pdfUrl.startsWith('blob:')) {
+                                            hasUpdates = true;
+                                            return {
+                                                ...site,
+                                                hasLocalPdf: true,
+                                                pdfUrl: URL.createObjectURL(file), // 创建新的 blob url
+                                                pdfName: file.name
+                                            };
+                                        }
+                                    }
+                                    return site;
+                                })
+                            }));
+
+                            if (hasUpdates) {
+                                console.log("已从本地数据库恢复 PDF 文件并关联到站点");
+                                return newCategories;
                             }
-                        }
-                    }
-
-                    if (hasUpdates) {
-                        setCategories(newCategories);
-                        console.log("已从本地数据库恢复 PDF 文件");
+                            return prevCategories;
+                        });
+                    } catch (err) {
+                        console.error("Error restoring PDFs:", err);
                     }
                 };
 
                 restorePDFs();
+            }, []); // 仅挂载时运行一次
 
-                // Cleanup blobs on unmount (optional for SPA but good practice)
-                return () => {
-                    // No-op here, URLs are needed for the session
-                };
-            }, []); // 仅挂载时运行一次，假设 categories 初始值已包含 hasLocalPdf 标记
+
 
             // 保存数据存档（导出JSON文件）
             const handleSaveArchive = () => {
