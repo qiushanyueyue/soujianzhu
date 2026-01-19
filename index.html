@@ -541,7 +541,7 @@
         const SiteCard = ({ site, isEditMode, onDelete, onEdit, categories, onMoveToCategory, isEditing, onSetEditing }) => {
             const [editName, setEditName] = useState(site.name);
             const [editUrl, setEditUrl] = useState(site.url);
-            const [editPdfUrl, setEditPdfUrl] = useState(site.pdfUrl || null);
+            const [editPdfName, setEditPdfName] = useState(site.pdfName || '');
             const pdfInputRef = useRef(null);
 
             // 同步props变化
@@ -550,6 +550,7 @@
                     setEditName(site.name);
                     setEditUrl(site.url);
                     setEditPdfUrl(site.pdfUrl || null);
+                    setEditPdfName(site.pdfName || '');
                 }
             }, [site, isEditing]);
 
@@ -574,7 +575,8 @@
                     onEdit(site.id, {
                         name: editName.trim(),
                         url: editUrl.trim(),
-                        pdfUrl: editPdfUrl
+                        pdfUrl: editPdfUrl,
+                        pdfName: editPdfName // 包含文件名
                     });
                     onSetEditing(false);
                 }
@@ -610,6 +612,9 @@
                     // 保存到 IndexedDB
                     await savePDF(site.id, file);
 
+                    // 更新文件名
+                    setEditPdfName(file.name);
+
                     // 生成临时预览链接
                     const pdfUrl = URL.createObjectURL(file);
                     setEditPdfUrl(pdfUrl);
@@ -622,6 +627,7 @@
                 if (editPdfUrl) {
                     URL.revokeObjectURL(editPdfUrl);
                     setEditPdfUrl(null);
+                    setEditPdfName(''); // 清空文件名
                     // 从 IndexedDB 删除
                     await deletePDF(site.id);
                 }
@@ -731,6 +737,12 @@
                                                 <div className="flex-1 min-w-0">
                                                     <div className="text-sm text-slate-700 truncate font-medium">已上传PDF文件</div>
                                                     <div className="text-xs text-slate-500">点击卡片将直接预览此PDF</div>
+
+                                                    {/* 显示文件名和存储位置 */}
+                                                    <div className="mt-1 text-xs text-slate-500 flex flex-col gap-1 border-t border-red-100 pt-1">
+                                                        <div><span className="font-bold">文件名：</span>{editPdfName || '未知文件'}</div>
+                                                        <div><span className="font-bold">存储位置：</span><span className="text-green-600 bg-green-50 px-1 rounded">浏览器本地数据库 (IndexedDB)</span></div>
+                                                    </div>
                                                 </div>
                                                 <a href={editPdfUrl} target="_blank" className="text-blue-600 hover:underline text-sm whitespace-nowrap px-2">
                                                     <i className="fa-solid fa-eye mr-1"></i>预览
@@ -950,6 +962,7 @@
                                 const file = await getPDF(site.id);
                                 if (file) {
                                     site.pdfUrl = URL.createObjectURL(file);
+                                    site.pdfName = file.name; // 恢复文件名
                                     hasUpdates = true;
                                 }
                             }
