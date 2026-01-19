@@ -1119,7 +1119,18 @@
             const [categories, setCategories] = useState(() => {
                 try {
                     const saved = localStorage.getItem('nav_categories');
-                    return saved ? JSON.parse(saved) : DEFAULT_CATEGORIES;
+                    if (saved) {
+                        const parsed = JSON.parse(saved);
+                        // 数据清理：启动时移除所有失效的 blob: URL
+                        return parsed.map(cat => ({
+                            ...cat,
+                            sites: cat.sites.map(site => ({
+                                ...site,
+                                url: site.url && site.url.startsWith('blob:') ? '' : site.url
+                            }))
+                        }));
+                    }
+                    return DEFAULT_CATEGORIES;
                 } catch (e) {
                     return DEFAULT_CATEGORIES;
                 }
@@ -1162,11 +1173,11 @@
                             const newCategories = prevCategories.map(cat => ({
                                 ...cat,
                                 sites: cat.sites.map(site => {
-                                    if (fileMap.has(site.id)) {
-                                        const file = fileMap.get(site.id);
+                                    // 强制转换为字符串匹配，防止类型差异
+                                    const siteIdStr = String(site.id);
+                                    if (fileMap.has(siteIdStr)) {
+                                        const file = fileMap.get(siteIdStr);
                                         // 仅当当前还没有 URL 或者 URL 失效时才重新生成
-                                        // 这里简单起见，如果 DB 有文件，总是尝试更新/恢复
-                                        // 注意：避免重复创建 Blob URL 造成内存泄漏，如果已有且有效则不处理 (但在刷新场景下，之前的 blob url 肯定失效了)
                                         if (!site.pdfUrl || !site.pdfUrl.startsWith('blob:')) {
                                             hasUpdates = true;
                                             return {
@@ -1313,7 +1324,7 @@
                     let siteData = {
                         id: newId,
                         name: norm.name,
-                        url: norm.url,
+                        url: (norm.isLocalPdf || (norm.url && norm.url.startsWith('blob:'))) ? '' : norm.url, // 防止保存 blob URL
                         pdfUrl: norm.pdfUrl || null,
                         pdfName: norm.name,
                         hasLocalPdf: false
@@ -1324,8 +1335,9 @@
                         try {
                             await savePDF(newId, norm.file);
                             siteData.hasLocalPdf = true;
-                            // 重新生成blob url以确保生命周期管理（虽然复用也可以，但这样更安全）
+                            // 重新生成blob url以确保生命周期管理
                             siteData.pdfUrl = URL.createObjectURL(norm.file);
+                            console.log(`Saved PDF for ${newId} to IndexedDB`);
                         } catch (err) {
                             console.error("Failed to save imported PDF:", err);
                         }
