@@ -126,7 +126,7 @@
                     { id: 's19', name: '钢结构设计标准', url: 'https://www.soujianzhu.cn/NormAndRules/NormContent.aspx?id=440' },
                     { id: 's20', name: '建筑结构可靠性设计统一标准', url: 'https://www.soujianzhu.cn/NormAndRules/NormContent.aspx?id=448' },
                     { id: 's21', name: '岩土锚杆与喷射混凝土支护工程技术规范', url: 'https://www.soujianzhu.cn/NormAndRules/NormContent.aspx?id=1125' },
-                    { id: 's22', name: '人民防空地下室设计规范', url: 'https://www.soujianzhu.cn/NormAndRules/NormContent.aspx?id=223' },
+                    { id: 's22', name: '人民防空地下室设计规范', url: 'https://www.soujianzhu.cn/NormAndRules/NormContent.aspx?id=233' },
                     { id: 's23', name: '建筑工程抗浮技术标准', url: 'https://www.soujianzhu.cn/NormAndRules/NormContent.aspx?id=2631' }
                 ]
             }
@@ -475,7 +475,6 @@
             const [editName, setEditName] = useState(site.name);
             const [editUrl, setEditUrl] = useState(site.url);
             const [editPdfUrl, setEditPdfUrl] = useState(site.pdfUrl || null);
-            const [selectedCategory, setSelectedCategory] = useState('');
             const pdfInputRef = useRef(null);
 
             // 同步props变化
@@ -578,8 +577,9 @@
                                 <i className="fa-solid fa-times"></i>
                             </button>
                         )}
+                        {/* 编辑图标放在最左侧 */}
                         {isEditMode && (
-                            <span className="absolute -top-1 left-1/2 -translate-x-1/2 bg-blue-500 text-white text-xs px-1.5 py-0.5 rounded shadow-sm">
+                            <span className="absolute -top-1 left-1 bg-blue-500 text-white text-xs px-1.5 py-0.5 rounded shadow-sm">
                                 <i className="fa-solid fa-pen text-xs"></i>
                             </span>
                         )}
@@ -609,9 +609,9 @@
                         )}
                     </div>
 
-                    {/* 编辑弹窗 - 使用 Portal 或高 z-index fixed 定位 */}
-                    {isEditing && (
-                        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fadeIn" onClick={handleCancel}>
+                    {/* 编辑弹窗 - 使用 Portal 渲染到 body 解决遮挡问题 */}
+                    {isEditing && ReactDOM.createPortal(
+                        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fadeIn" onClick={handleCancel}>
                             <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto transform transition-all scale-100" onClick={e => e.stopPropagation()}>
                                 <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
                                     <i className="fa-solid fa-pen-to-square text-blue-600"></i>
@@ -641,7 +641,7 @@
                                             type="text"
                                             value={editUrl}
                                             onChange={(e) => setEditUrl(e.target.value)}
-                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-200 focus:border-blue-400 outline-none"
+                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-200 focus:border-blue-400 outline-none font-mono text-sm"
                                             placeholder="https://..."
                                         />
                                     </div>
@@ -688,8 +688,23 @@
                                     </div>
                                 </div>
 
-                                {/* 操作按钮 */}
-                                <div className="flex gap-3 mt-6 justify-between">
+                                {/* 底部按钮 */}
+                                <div className="flex gap-3 pt-2 mt-6">
+                                    <button
+                                        onClick={handleSave}
+                                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors font-medium shadow-sm active:scale-95 transform duration-100"
+                                    >
+                                        保存修改
+                                    </button>
+                                    <button
+                                        onClick={handleCancel}
+                                        className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg transition-colors font-medium active:scale-95 transform duration-100"
+                                    >
+                                        取消
+                                    </button>
+                                </div>
+                                <div className="border-t border-slate-100 mt-4 pt-4 flex justify-between items-center">
+                                    <span className="text-xs text-slate-400">如果要彻底删除此规范，请点击右侧按钮</span>
                                     <button
                                         onClick={() => {
                                             if (confirm('确定要删除这个规范吗？')) {
@@ -697,28 +712,16 @@
                                                 onSetEditing(false);
                                             }
                                         }}
-                                        className="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-1"
+                                        className="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-1 text-sm font-medium"
+                                        title="彻底删除此规范"
                                     >
-                                        <i className="fa-solid fa-trash"></i>
+                                        <i className="fa-solid fa-trash-can"></i>
                                         删除规范
                                     </button>
-                                    <div className="flex gap-3">
-                                        <button
-                                            onClick={handleCancel}
-                                            className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-                                        >
-                                            取消
-                                        </button>
-                                        <button
-                                            onClick={handleSave}
-                                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-                                        >
-                                            保存
-                                        </button>
-                                    </div>
                                 </div>
                             </div>
-                        </div>
+                        </div>,
+                        document.body
                     )}
                 </>
             );
