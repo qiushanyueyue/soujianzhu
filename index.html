@@ -460,7 +460,11 @@
         };
 
         // --- SiteCard Component ---
-        const SiteCard = ({ site, isEditMode, onDelete }) => {
+        const SiteCard = ({ site, isEditMode, onDelete, onEdit }) => {
+            const [isEditing, setIsEditing] = useState(false);
+            const [editName, setEditName] = useState(site.name);
+            const [editUrl, setEditUrl] = useState(site.url);
+
             const handleDragStart = (e) => {
                 e.dataTransfer.setData("siteId", site.id);
                 e.dataTransfer.effectAllowed = "move";
@@ -476,55 +480,145 @@
             // 优先使用PDF链接，否则使用网页链接
             const targetUrl = hasPdf ? site.pdfUrl : site.url;
 
+            // 保存编辑
+            const handleSave = () => {
+                if (editName.trim() && editUrl.trim()) {
+                    onEdit(site.id, { name: editName.trim(), url: editUrl.trim() });
+                    setIsEditing(false);
+                }
+            };
+
+            // 取消编辑
+            const handleCancel = () => {
+                setEditName(site.name);
+                setEditUrl(site.url);
+                setIsEditing(false);
+            };
+
+            // 点击卡片进入编辑
+            const handleCardClick = (e) => {
+                if (isEditMode) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsEditing(true);
+                }
+            };
+
             return (
-                <div
-                    draggable={isEditMode}
-                    onDragStart={isEditMode ? handleDragStart : undefined}
-                    onDragEnd={isEditMode ? handleDragEnd : undefined}
-                    className={`
-                        relative group block p-1 bg-white border border-slate-200 rounded-lg shadow-sm 
-                        hover:shadow-md hover:border-blue-300 hover:-translate-y-0.5 transition-all duration-200 
-                        ${isEditMode ? 'cursor-move animate-pulse-slow' : 'cursor-pointer'}
-                        ${hasPdf ? 'border-l-4 border-l-red-500' : ''}
-                    `}
-                >
-                    {isEditMode && (
-                        <button
-                            onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                onDelete(site.id);
-                            }}
-                            className="absolute -top-2 -right-2 bg-red-500 text-white w-5 h-5 rounded-full flex items-center justify-center text-xs shadow-md hover:bg-red-600 z-10"
-                        >
-                            <i className="fa-solid fa-times"></i>
-                        </button>
-                    )}
-                    {hasPdf && (
-                        <span className="absolute -top-1 -left-1 bg-red-500 text-white text-xs px-1.5 py-0.5 rounded shadow-sm font-bold">
-                            PDF
-                        </span>
-                    )}
-                    <a
-                        href={isEditMode ? "#" : targetUrl}
-                        target={isEditMode ? undefined : "_blank"}
-                        onClick={(e) => isEditMode && e.preventDefault()}
-                        className="block h-full w-full text-center py-2 px-1"
+                <>
+                    <div
+                        draggable={isEditMode && !isEditing}
+                        onDragStart={isEditMode ? handleDragStart : undefined}
+                        onDragEnd={isEditMode ? handleDragEnd : undefined}
+                        onClick={handleCardClick}
+                        className={`
+                            relative group block p-1 bg-white border border-slate-200 rounded-lg shadow-sm 
+                            hover:shadow-md hover:border-blue-300 hover:-translate-y-0.5 transition-all duration-200 
+                            ${isEditMode ? 'cursor-pointer ring-2 ring-blue-200' : 'cursor-pointer'}
+                            ${hasPdf ? 'border-l-4 border-l-red-500' : ''}
+                        `}
                     >
-                        <span className="text-sm font-bold text-slate-800 tracking-tight leading-snug group-hover:text-blue-700 transition-colors line-clamp-2">
-                            {hasPdf && <i className="fa-solid fa-file-pdf text-red-500 mr-1"></i>}
-                            {site.name}
-                        </span>
-                    </a>
-                </div>
+                        {isEditMode && (
+                            <button
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    onDelete(site.id);
+                                }}
+                                className="absolute -top-2 -right-2 bg-red-500 text-white w-5 h-5 rounded-full flex items-center justify-center text-xs shadow-md hover:bg-red-600 z-10"
+                            >
+                                <i className="fa-solid fa-times"></i>
+                            </button>
+                        )}
+                        {isEditMode && (
+                            <span className="absolute -top-1 left-1/2 -translate-x-1/2 bg-blue-500 text-white text-xs px-1.5 py-0.5 rounded shadow-sm">
+                                <i className="fa-solid fa-pen text-xs"></i>
+                            </span>
+                        )}
+                        {hasPdf && (
+                            <span className="absolute -top-1 -left-1 bg-red-500 text-white text-xs px-1.5 py-0.5 rounded shadow-sm font-bold">
+                                PDF
+                            </span>
+                        )}
+                        {!isEditMode ? (
+                            <a
+                                href={targetUrl}
+                                target="_blank"
+                                className="block h-full w-full text-center py-2 px-1"
+                            >
+                                <span className="text-sm font-bold text-slate-800 tracking-tight leading-snug group-hover:text-blue-700 transition-colors line-clamp-2">
+                                    {hasPdf && <i className="fa-solid fa-file-pdf text-red-500 mr-1"></i>}
+                                    {site.name}
+                                </span>
+                            </a>
+                        ) : (
+                            <div className="block h-full w-full text-center py-2 px-1">
+                                <span className="text-sm font-bold text-slate-800 tracking-tight leading-snug line-clamp-2">
+                                    {hasPdf && <i className="fa-solid fa-file-pdf text-red-500 mr-1"></i>}
+                                    {site.name}
+                                </span>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* 编辑弹窗 */}
+                    {isEditing && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={handleCancel}>
+                            <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
+                                <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                    <i className="fa-solid fa-pen-to-square text-blue-600"></i>
+                                    编辑规范
+                                </h3>
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-600 mb-1">规范名称</label>
+                                        <input
+                                            type="text"
+                                            value={editName}
+                                            onChange={(e) => setEditName(e.target.value)}
+                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-200 focus:border-blue-400 outline-none"
+                                            autoFocus
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-600 mb-1">链接地址</label>
+                                        <input
+                                            type="text"
+                                            value={editUrl}
+                                            onChange={(e) => setEditUrl(e.target.value)}
+                                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-200 focus:border-blue-400 outline-none"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="flex gap-3 mt-6 justify-end">
+                                    <button
+                                        onClick={handleCancel}
+                                        className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                                    >
+                                        取消
+                                    </button>
+                                    <button
+                                        onClick={handleSave}
+                                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                                    >
+                                        保存
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </>
             );
         };
 
         // --- CategoryGroup Component ---
-        const CategoryGroup = ({ category, onDrop, isEditMode, onDeleteSite, onUpdateCategoryTitle }) => {
+        const CategoryGroup = ({ category, onDrop, isEditMode, onDeleteSite, onEditSite, onUpdateCategoryTitle }) => {
             const [isEditingTitle, setIsEditingTitle] = useState(false);
             const [newTitle, setNewTitle] = useState(category.title);
             const [isCollapsed, setIsCollapsed] = useState(false);
+            const [width, setWidth] = useState(null); // null = auto
+            const resizeRef = useRef(null);
+            const containerRef = useRef(null);
 
             const handleDragOver = (e) => {
                 e.preventDefault();
@@ -618,6 +712,7 @@
                                     site={site}
                                     isEditMode={isEditMode}
                                     onDelete={onDeleteSite}
+                                    onEdit={onEditSite}
                                 />
                             ))}
                             {category.sites.length === 0 && (
@@ -667,6 +762,16 @@
                 setCategories(prev => prev.map(cat => ({
                     ...cat,
                     sites: cat.sites.filter(s => s.id !== siteId)
+                })));
+            };
+
+            // 编辑规范内容
+            const handleEditSite = (siteId, updates) => {
+                setCategories(prev => prev.map(cat => ({
+                    ...cat,
+                    sites: cat.sites.map(s =>
+                        s.id === siteId ? { ...s, ...updates } : s
+                    )
                 })));
             };
 
@@ -770,6 +875,7 @@
                                     isEditMode={isEditMode}
                                     onDrop={handleDropSite}
                                     onDeleteSite={handleDeleteSite}
+                                    onEditSite={handleEditSite}
                                     onUpdateCategoryTitle={handleUpdateCategoryTitle}
                                 />
                             ))}
