@@ -484,7 +484,8 @@
                             updateTime: `上传时间：${new Date().toLocaleDateString()}`,
                             implementTime: '本地PDF',
                             pdfUrl: pdfUrl, // 标记为PDF文件
-                            isLocalPdf: true
+                            isLocalPdf: true,
+                            file: file // 保存原始文件对象用于后续存储
                         });
                     }
                 });
@@ -1300,16 +1301,41 @@
             };
 
             // 添加规范到分类
-            const handleAddToCategory = (categoryId, selectedNorms) => {
+            const handleAddToCategory = async (categoryId, selectedNorms) => {
+                const newSites = [];
+
+                // 预处理所有选择的规范，如果是本地PDF则保存到DB
+                for (let i = 0; i < selectedNorms.length; i++) {
+                    const norm = selectedNorms[i];
+                    // 使用更稳健的唯一ID生成策略
+                    const newId = `norm-${Date.now()}-${i}-${Math.floor(Math.random() * 1000)}`;
+
+                    let siteData = {
+                        id: newId,
+                        name: norm.name,
+                        url: norm.url,
+                        pdfUrl: norm.pdfUrl || null,
+                        pdfName: norm.name,
+                        hasLocalPdf: false
+                    };
+
+                    // 如果是来自Catalog上传的本地PDF，需要保存到数据库
+                    if (norm.isLocalPdf && norm.file) {
+                        try {
+                            await savePDF(newId, norm.file);
+                            siteData.hasLocalPdf = true;
+                            // 重新生成blob url以确保生命周期管理（虽然复用也可以，但这样更安全）
+                            siteData.pdfUrl = URL.createObjectURL(norm.file);
+                        } catch (err) {
+                            console.error("Failed to save imported PDF:", err);
+                        }
+                    }
+
+                    newSites.push(siteData);
+                }
+
                 setCategories(prev => prev.map(cat => {
                     if (cat.id === categoryId) {
-                        // 为每个规范生成唯一ID并转换为site格式，保留pdfUrl
-                        const newSites = selectedNorms.map((norm, idx) => ({
-                            id: `norm-${Date.now()}-${idx}`,
-                            name: norm.name,
-                            url: norm.url,
-                            pdfUrl: norm.pdfUrl || null // 保留PDF链接
-                        }));
                         return { ...cat, sites: [...cat.sites, ...newSites] };
                     }
                     return cat;
