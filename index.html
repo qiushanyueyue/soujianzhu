@@ -234,6 +234,38 @@
                 XLSX.writeFile(wb, "规范目录模板.xlsx");
             };
 
+            // 上传本地PDF文件
+            const handlePdfUpload = (e) => {
+                const files = e.target.files;
+                if (!files || files.length === 0) return;
+
+                const newPdfItems = [];
+                Array.from(files).forEach(file => {
+                    if (file.type === 'application/pdf') {
+                        // 创建blob URL用于在浏览器中直接查看PDF
+                        const pdfUrl = URL.createObjectURL(file);
+                        const fileName = file.name.replace('.pdf', '').replace('.PDF', '');
+
+                        newPdfItems.push({
+                            url: pdfUrl, // blob URL
+                            name: fileName,
+                            updateTime: `上传时间：${new Date().toLocaleDateString()}`,
+                            implementTime: '本地PDF',
+                            pdfUrl: pdfUrl, // 标记为PDF文件
+                            isLocalPdf: true
+                        });
+                    }
+                });
+
+                if (newPdfItems.length > 0) {
+                    setTableData(prev => [...newPdfItems, ...prev]);
+                    alert(`成功上传 ${newPdfItems.length} 个PDF文件，已添加到规范目录列表顶部`);
+                }
+
+                // 清空input以支持重复上传同名文件
+                e.target.value = '';
+            };
+
             if (!isOpen) return null;
 
             return (
@@ -252,7 +284,7 @@
 
                         {/* Toolbar */}
                         <div className="p-4 bg-white border-b border-slate-100 flex flex-col sm:flex-row gap-4 items-center">
-                            <div className="flex gap-2">
+                            <div className="flex gap-2 flex-wrap">
                                 <label className="flex items-center gap-2 px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg cursor-pointer transition-colors shadow-sm font-medium text-sm">
                                     <i className="fa-solid fa-upload"></i>
                                     上传Excel
@@ -267,6 +299,14 @@
                                     <i className="fa-solid fa-download"></i>
                                     下载模板
                                 </button>
+
+                                <label className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg cursor-pointer transition-colors shadow-sm font-medium text-sm"
+                                    title="上传本地PDF文件，可直接在浏览器中查看"
+                                >
+                                    <i className="fa-solid fa-file-pdf"></i>
+                                    上传PDF
+                                    <input type="file" accept=".pdf" multiple onChange={handlePdfUpload} className="hidden" />
+                                </label>
 
                                 {selectedRows.size > 0 && (
                                     <button
@@ -424,13 +464,17 @@
             const handleDragStart = (e) => {
                 e.dataTransfer.setData("siteId", site.id);
                 e.dataTransfer.effectAllowed = "move";
-                // Adding a class for visual feedback if needed
                 e.target.classList.add('opacity-50');
             };
 
             const handleDragEnd = (e) => {
                 e.target.classList.remove('opacity-50');
             };
+
+            // 判断是否有本地PDF
+            const hasPdf = site.pdfUrl && site.pdfUrl.startsWith('blob:');
+            // 优先使用PDF链接，否则使用网页链接
+            const targetUrl = hasPdf ? site.pdfUrl : site.url;
 
             return (
                 <div
@@ -441,6 +485,7 @@
                         relative group block p-1 bg-white border border-slate-200 rounded-lg shadow-sm 
                         hover:shadow-md hover:border-blue-300 hover:-translate-y-0.5 transition-all duration-200 
                         ${isEditMode ? 'cursor-move animate-pulse-slow' : 'cursor-pointer'}
+                        ${hasPdf ? 'border-l-4 border-l-red-500' : ''}
                     `}
                 >
                     {isEditMode && (
@@ -455,13 +500,19 @@
                             <i className="fa-solid fa-times"></i>
                         </button>
                     )}
+                    {hasPdf && (
+                        <span className="absolute -top-1 -left-1 bg-red-500 text-white text-xs px-1.5 py-0.5 rounded shadow-sm font-bold">
+                            PDF
+                        </span>
+                    )}
                     <a
-                        href={isEditMode ? "#" : site.url}
+                        href={isEditMode ? "#" : targetUrl}
                         target={isEditMode ? undefined : "_blank"}
                         onClick={(e) => isEditMode && e.preventDefault()}
                         className="block h-full w-full text-center py-2 px-1"
                     >
                         <span className="text-sm font-bold text-slate-800 tracking-tight leading-snug group-hover:text-blue-700 transition-colors line-clamp-2">
+                            {hasPdf && <i className="fa-solid fa-file-pdf text-red-500 mr-1"></i>}
                             {site.name}
                         </span>
                     </a>
@@ -629,11 +680,12 @@
             const handleAddToCategory = (categoryId, selectedNorms) => {
                 setCategories(prev => prev.map(cat => {
                     if (cat.id === categoryId) {
-                        // 为每个规范生成唯一ID并转换为site格式
+                        // 为每个规范生成唯一ID并转换为site格式，保留pdfUrl
                         const newSites = selectedNorms.map((norm, idx) => ({
                             id: `norm-${Date.now()}-${idx}`,
                             name: norm.name,
-                            url: norm.url
+                            url: norm.url,
+                            pdfUrl: norm.pdfUrl || null // 保留PDF链接
                         }));
                         return { ...cat, sites: [...cat.sites, ...newSites] };
                     }
