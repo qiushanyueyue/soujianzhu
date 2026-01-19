@@ -732,7 +732,20 @@
         const CategoryGroup = ({ category, onDrop, isEditMode, onDeleteSite, onEditSite, onUpdateCategoryTitle, editingSiteId, onSetEditingSiteId }) => {
             const [isEditingTitle, setIsEditingTitle] = useState(false);
             const [newTitle, setNewTitle] = useState(category.title);
-            const [isCollapsed, setIsCollapsed] = useState(false);
+            const [isCollapsed, setIsCollapsed] = useState(() => {
+                try {
+                    const saved = localStorage.getItem(`category_collapsed_${category.id}`);
+                    return saved ? JSON.parse(saved) : false;
+                } catch (e) {
+                    return false;
+                }
+            });
+
+            // 持久化折叠状态
+            useEffect(() => {
+                localStorage.setItem(`category_collapsed_${category.id}`, JSON.stringify(isCollapsed));
+            }, [isCollapsed, category.id]);
+
             const [width, setWidth] = useState(null); // null = auto
             const resizeRef = useRef(null);
             const containerRef = useRef(null);
