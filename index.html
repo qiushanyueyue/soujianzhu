@@ -1315,6 +1315,16 @@
                 }));
             };
 
+            // 添加新分类
+            const addCategory = () => {
+                const newId = categories.length > 0 ? Math.max(...categories.map(c => c.id)) + 1 : 1;
+                setCategories([...categories, {
+                    id: newId,
+                    title: '新分类',
+                    sites: []
+                }]);
+            };
+
             return (
                 <div className="min-h-screen flex flex-col relative overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/30">
 
