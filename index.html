@@ -698,6 +698,7 @@
             const [editUrl, setEditUrl] = useState(site.url);
             const [editPdfUrl, setEditPdfUrl] = useState(site.pdfUrl || null); // 补全丢失的状态
             const [editPdfName, setEditPdfName] = useState(site.pdfName || '');
+            const [isDragging, setIsDragging] = useState(false);
             const pdfInputRef = useRef(null);
 
             // 同步props变化
@@ -761,9 +762,8 @@
                 }
             };
 
-            // 上传PDF
-            const handlePdfUpload = async (e) => {
-                const file = e.target.files[0];
+            // 处理文件上传逻辑
+            const processFile = async (file) => {
                 if (file && file.type === 'application/pdf') {
                     // 保存到 IndexedDB
                     await savePDF(site.id, file);
@@ -775,7 +775,37 @@
                     const pdfUrl = URL.createObjectURL(file);
                     setEditPdfUrl(pdfUrl);
                 }
+            };
+
+            // 上传PDF (Input Change)
+            const handlePdfUpload = async (e) => {
+                const file = e.target.files[0];
+                await processFile(file);
                 e.target.value = '';
+            };
+
+            // 拖拽相关事件
+            const handleDragOver = (e) => {
+                e.preventDefault();
+                setIsDragging(true);
+            };
+
+            const handleDragLeave = (e) => {
+                e.preventDefault();
+                setIsDragging(false);
+            };
+
+            const handleDrop = async (e) => {
+                e.preventDefault();
+                setIsDragging(false);
+                const file = e.dataTransfer.files[0];
+                if (file) {
+                    if (file.type === 'application/pdf') {
+                        await processFile(file);
+                    } else {
+                        alert('请上传 PDF 格式的文件');
+                    }
+                }
             };
 
             // 删除PDF
@@ -925,11 +955,33 @@
                                                 </button>
                                             </div>
                                         ) : (
-                                            <label className="flex flex-col items-center justify-center gap-2 p-6 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer hover:border-red-400 hover:bg-red-50 transition-colors group/upload">
-                                                <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center group-hover/upload:bg-red-100 transition-colors">
-                                                    <i className="fa-solid fa-upload text-slate-400 group-hover/upload:text-red-500"></i>
+                                            <label
+                                                onDragOver={handleDragOver}
+                                                onDragLeave={handleDragLeave}
+                                                onDrop={handleDrop}
+                                                className={`
+                                                    flex flex-col items-center justify-center gap-2 p-6 border-2 border-dashed rounded-lg cursor-pointer transition-all duration-200 group/upload
+                                                    ${isDragging
+                                                        ? 'border-blue-500 bg-blue-50 scale-[1.02] shadow-md'
+                                                        : 'border-slate-300 hover:border-red-400 hover:bg-red-50'
+                                                    }
+                                                `}
+                                            >
+                                                <div className={`
+                                                    w-10 h-10 rounded-full flex items-center justify-center transition-colors
+                                                    ${isDragging ? 'bg-blue-200' : 'bg-slate-100 group-hover/upload:bg-red-100'}
+                                                `}>
+                                                    <i className={`
+                                                        fa-solid fa-cloud-upload-alt text-lg
+                                                        ${isDragging ? 'text-blue-600' : 'text-slate-400 group-hover/upload:text-red-500'}
+                                                    `}></i>
                                                 </div>
-                                                <span className="text-slate-600 font-medium group-hover/upload:text-red-600">点击上传PDF文件</span>
+                                                <span className={`
+                                                    font-medium transition-colors
+                                                    ${isDragging ? 'text-blue-600' : 'text-slate-600 group-hover/upload:text-red-600'}
+                                                `}>
+                                                    {isDragging ? '释放以上传 PDF' : '点击或拖拽上传 PDF 文件'}
+                                                </span>
                                                 <span className="text-xs text-slate-400">支持 .pdf 格式，上传后可直接预览</span>
                                                 <input
                                                     ref={pdfInputRef}
@@ -975,7 +1027,7 @@
                                     </button>
                                 </div>
                             </div>
-                        </div>,
+                        </div >,
                         document.body
                     )}
                 </>
